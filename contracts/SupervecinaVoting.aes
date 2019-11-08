@@ -1,0 +1,47 @@
+contract SupervecinaVoting =
+
+   record vote_count = {yes: int, no: int}
+
+   record state = {
+      registered_voters_votes: map(address, bool),
+      vote_results: vote_count,
+      initiative_name: string }
+
+   stateful entrypoint init(initiative_name: string) : state = { 
+      registered_voters_votes = {},
+      vote_results = {yes = 0, no = 0},
+      initiative_name = initiative_name }
+   
+   stateful entrypoint add_voter(voter: address) : bool = 
+      put(state{registered_voters_votes[voter] = false})
+      true
+
+   stateful entrypoint vote(vote_value: bool) : bool =
+      let voter: address = Call.caller
+      is_voter(voter, state.registered_voters_votes)
+      has_not_voted(voter, state.registered_voters_votes)
+      put(state{ registered_voters_votes[voter] = true})
+      if(vote_value)
+         put(state{ vote_results.yes = state.vote_results.yes + 1 })
+      else
+         put(state{ vote_results.no = state.vote_results.no + 1 })
+      true
+
+   entrypoint initiative_approved() : bool =
+      state.vote_results.yes > state.vote_results.no
+   
+   private function is_voter(voter: address, voters: map(address, bool)) =
+      require(voter_is_registered(voter, voters), "The address that sent this transaction is not a registered voter.")
+
+   private function has_not_voted(voter: address, voters: map(address, bool)) =
+      require(!vote_present(voter, voters), "The address that sent this transaction has already voted.")
+
+   private function vote_present(k: address, m: map(address, bool)) : bool =
+      switch(Map.lookup(k,m))
+         None => false
+         Some(x) => x
+
+   private function voter_is_registered(k : address, m: map(address, bool)) : bool =
+      switch(Map.lookup(k,m))
+         None => false
+         Some(x) => true
